@@ -87,6 +87,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                   asChild
                   isActive={router.pathname === item.href}
                   tooltip={item.title}
+                  className="data-[active=true]:bg-[oklch(0.91_0.097_192)] data-[active=true]:text-[oklch(0.145_0_0)]"
                 >
                   <Link href={item.href}>
                     <item.icon />
