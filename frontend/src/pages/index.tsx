@@ -1,24 +1,10 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
-import { ComponentExample } from "@/components/component-example";
-import { Example } from "@/components/example";
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export default function Home() {
+export default function DashboardPage() {
   return (
-    <div
-    // className={`${geistSans.className} ${geistMono.className} flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black`}
-    >
-      <ComponentExample />
-      {/* <Example /> */}
+    <div>
+      <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Overview of employees and attendance.
+      </p>
     </div>
   );
 }

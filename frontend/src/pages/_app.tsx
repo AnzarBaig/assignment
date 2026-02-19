@@ -3,6 +3,9 @@ import { useState } from "react";
 import type { AppProps } from "next/app";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
+import { AppLayout } from "@/components/layout/app-layout";
 
 export default function App({ Component, pageProps }: AppProps) {
   const [queryClient] = useState(
@@ -10,7 +13,7 @@ export default function App({ Component, pageProps }: AppProps) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 5 * 60 * 1000,
+            staleTime: 60 * 1000,
             retry: 1,
           },
         },
@@ -21,12 +24,16 @@ export default function App({ Component, pageProps }: AppProps) {
     <QueryClientProvider client={queryClient}>
       <NextThemesProvider
         attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
+        defaultTheme="light"
         forcedTheme="light"
+        disableTransitionOnChange
       >
-        <Component {...pageProps} />
+        <TooltipProvider>
+          <AppLayout>
+            <Component {...pageProps} />
+          </AppLayout>
+          <Toaster />
+        </TooltipProvider>
       </NextThemesProvider>
     </QueryClientProvider>
   );
