@@ -104,6 +104,7 @@ DJANGO_DEBUG=False
 DJANGO_ALLOWED_HOSTS=backend.anzar.wtf,localhost
 CORS_ALLOWED_ORIGINS=https://assignment.anzar.wtf
 NEXT_PUBLIC_API_BASE_URL=https://backend.anzar.wtf/api
+DATABASE_URL=postgresql://quess:<pick-a-strong-password>@db:5432/quessdb
 EOF
 ```
 
