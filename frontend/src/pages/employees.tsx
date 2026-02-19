@@ -11,6 +11,7 @@ import { isAxiosError } from "axios";
 import {
   ColumnDef,
   getCoreRowModel,
+  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   PaginationState,
@@ -48,8 +49,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/reui/badge";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Avatar,
+  AvatarFallback,
+} from "@/components/ui/avatar";
 import {
   DataGrid,
   DataGridContainer,
@@ -137,37 +144,80 @@ export default function EmployeesPage() {
   const columns = useMemo<ColumnDef<Employee>[]>(
     () => [
       {
-        accessorKey: "employee_id",
-        header: "Employee ID",
-        cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">
-            {row.original.employee_id}
-          </span>
-        ),
-        size: 120,
-      },
-      {
         accessorKey: "full_name",
+        id: "full_name",
         header: "Name",
         cell: ({ row }) => (
-          <span className="font-medium">{row.original.full_name}</span>
+          <div className="flex items-center gap-3">
+            <Avatar className="size-8">
+              <AvatarFallback>
+                {row.original.full_name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
+              </AvatarFallback>
+            </Avatar>
+            <div className="space-y-px">
+              <div className="text-foreground font-medium">
+                {row.original.full_name}
+              </div>
+              <div className="text-muted-foreground">
+                {row.original.email}
+              </div>
+            </div>
+          </div>
         ),
-        size: 180,
+        meta: {
+          skeleton: (
+            <div className="flex h-[41px] items-center gap-3">
+              <Skeleton className="size-8 rounded-full" />
+              <div className="space-y-1">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            </div>
+          ),
+        },
+        size: 250,
+        enableSorting: true,
         enableHiding: false,
       },
       {
-        accessorKey: "email",
-        header: "Email",
+        accessorKey: "department",
+        id: "department",
+        header: "Role",
         cell: ({ row }) => (
-          <span className="text-muted-foreground">{row.original.email}</span>
+          <div className="space-y-0.5">
+            <div className="text-foreground font-medium">
+              {row.original.department}
+            </div>
+            <div className="text-muted-foreground font-mono text-xs">
+              {row.original.employee_id}
+            </div>
+          </div>
         ),
-        size: 220,
+        meta: {
+          skeleton: (
+            <div className="space-y-1">
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-4 w-14" />
+            </div>
+          ),
+        },
+        size: 150,
+        enableSorting: true,
       },
       {
-        accessorKey: "department",
-        header: "Department",
-        cell: ({ row }) => row.original.department,
-        size: 140,
+        accessorKey: "employee_id",
+        id: "status",
+        header: "Status",
+        cell: () => (
+          <Badge variant="success-outline">Active</Badge>
+        ),
+        meta: {
+          skeleton: <Skeleton className="h-7 w-16" />,
+        },
+        size: 100,
       },
       {
         id: "actions",
@@ -219,11 +269,13 @@ export default function EmployeesPage() {
   const table = useReactTable({
     columns,
     data: tableData,
+    pageCount: Math.ceil((tableData.length || 0) / pagination.pageSize),
     getRowId: (row) => String(row.id),
     state: { pagination, sorting },
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
@@ -379,6 +431,7 @@ export default function EmployeesPage() {
         table={table}
         recordCount={tableData.length}
         isLoading={isLoading}
+        tableLayout={{ headerSticky: true }}
         emptyMessage={
           <div className="flex flex-col items-center gap-2 py-8">
             <UsersIcon className="size-8 text-muted-foreground/40" />
@@ -391,7 +444,7 @@ export default function EmployeesPage() {
       >
         <div className="w-full space-y-2.5">
           <DataGridContainer>
-            <ScrollArea>
+            <ScrollArea className="h-96">
               <DataGridTable />
               <ScrollBar orientation="horizontal" />
             </ScrollArea>

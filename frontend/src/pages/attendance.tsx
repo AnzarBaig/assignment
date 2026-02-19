@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import {
   ColumnDef,
   getCoreRowModel,
+  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   PaginationState,
@@ -57,9 +58,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/reui/badge";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Avatar,
+  AvatarFallback,
+} from "@/components/ui/avatar";
 import {
   DataGrid,
   DataGridContainer,
@@ -165,46 +171,72 @@ export default function AttendancePage() {
   const columns = useMemo<ColumnDef<Attendance>[]>(
     () => [
       {
-        accessorKey: "employee_id_display",
-        header: "Employee ID",
-        cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">
-            {row.original.employee_id_display}
-          </span>
-        ),
-        size: 120,
-      },
-      {
         accessorKey: "employee_name",
+        id: "employee_name",
         header: "Name",
         cell: ({ row }) => (
-          <span className="font-medium">{row.original.employee_name}</span>
+          <div className="flex items-center gap-3">
+            <Avatar className="size-8">
+              <AvatarFallback>
+                {row.original.employee_name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")}
+              </AvatarFallback>
+            </Avatar>
+            <div className="space-y-px">
+              <div className="text-foreground font-medium">
+                {row.original.employee_name}
+              </div>
+              <div className="text-muted-foreground font-mono text-xs">
+                {row.original.employee_id_display}
+              </div>
+            </div>
+          </div>
         ),
-        size: 180,
+        meta: {
+          skeleton: (
+            <div className="flex h-10 items-center gap-3">
+              <Skeleton className="size-8 rounded-full" />
+              <div className="space-y-1">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            </div>
+          ),
+        },
+        size: 250,
+        enableSorting: true,
         enableHiding: false,
       },
       {
         accessorKey: "date",
+        id: "date",
         header: "Date",
         cell: ({ row }) => (
-          <span className="tabular-nums text-muted-foreground">
+          <div className="text-foreground tabular-nums">
             {row.original.date}
-          </span>
+          </div>
         ),
+        meta: {
+          skeleton: <Skeleton className="h-5 w-20" />,
+        },
         size: 120,
+        enableSorting: true,
       },
       {
         accessorKey: "status",
+        id: "status",
         header: "Status",
-        cell: ({ row }) => (
-          <Badge
-            variant={
-              row.original.status === "Present" ? "secondary" : "destructive"
-            }
-          >
-            {row.original.status}
-          </Badge>
-        ),
+        cell: ({ row }) => {
+          if (row.original.status === "Present") {
+            return <Badge variant="success-outline">Present</Badge>;
+          }
+          return <Badge variant="destructive-outline">Absent</Badge>;
+        },
+        meta: {
+          skeleton: <Skeleton className="h-7 w-16" />,
+        },
         size: 100,
       },
       {
@@ -253,11 +285,13 @@ export default function AttendancePage() {
   const table = useReactTable({
     columns,
     data: tableData,
+    pageCount: Math.ceil((tableData.length || 0) / pagination.pageSize),
     getRowId: (row) => String(row.id),
     state: { pagination, sorting },
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
@@ -494,6 +528,7 @@ export default function AttendancePage() {
         table={table}
         recordCount={tableData.length}
         isLoading={isLoading}
+        tableLayout={{ headerSticky: true }}
         emptyMessage={
           <div className="flex flex-col items-center gap-2 py-8">
             <CalendarCheckIcon className="size-8 text-muted-foreground/40" />
@@ -512,7 +547,7 @@ export default function AttendancePage() {
       >
         <div className="w-full space-y-2.5">
           <DataGridContainer>
-            <ScrollArea>
+            <ScrollArea className="h-96">
               <DataGridTable />
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
