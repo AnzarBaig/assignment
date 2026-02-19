@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   PlusIcon,
   Trash2Icon,
@@ -8,15 +8,17 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { isAxiosError } from "axios";
+import {
+  ColumnDef,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  PaginationState,
+  SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
 
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -38,28 +40,28 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Field, FieldLabel, FieldError } from "@/components/ui/field";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+  DataGrid,
+  DataGridContainer,
+} from "@/components/reui/data-grid/data-grid";
+import { DataGridTable } from "@/components/reui/data-grid/data-grid-table";
+import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination";
 import {
   useEmployees,
   useCreateEmployee,
   useDeleteEmployee,
 } from "@/hooks/useEmployees";
+import type { Employee } from "@/types/employeeTypes";
 
 const DEPARTMENTS = [
   "Engineering",
@@ -94,12 +96,18 @@ export default function EmployeesPage() {
   });
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+  const [sorting, setSorting] = useState<SortingState>([]);
+
   function resetForm() {
     setFormData({ employee_id: "", full_name: "", email: "", department: "" });
     setFormErrors({});
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormErrors({});
 
@@ -126,25 +134,99 @@ export default function EmployeesPage() {
     });
   }
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-8 w-32" />
-        </div>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const columns = useMemo<ColumnDef<Employee>[]>(
+    () => [
+      {
+        accessorKey: "employee_id",
+        header: "Employee ID",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">
+            {row.original.employee_id}
+          </span>
+        ),
+        size: 120,
+      },
+      {
+        accessorKey: "full_name",
+        header: "Name",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.full_name}</span>
+        ),
+        size: 180,
+        enableHiding: false,
+      },
+      {
+        accessorKey: "email",
+        header: "Email",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{row.original.email}</span>
+        ),
+        size: 220,
+      },
+      {
+        accessorKey: "department",
+        header: "Department",
+        cell: ({ row }) => row.original.department,
+        size: 140,
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <Trash2Icon className="size-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent size="sm">
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Delete {row.original.full_name}?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently remove the employee and all their
+                  attendance records.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  onClick={() =>
+                    handleDelete(row.original.id, row.original.full_name)
+                  }
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ),
+        size: 48,
+        enableSorting: false,
+      },
+    ],
+    []
+  );
+
+  const tableData = useMemo(() => employees ?? [], [employees]);
+
+  const table = useReactTable({
+    columns,
+    data: tableData,
+    getRowId: (row) => String(row.id),
+    state: { pagination, sorting },
+    onPaginationChange: setPagination,
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
 
   if (error) {
     return (
@@ -167,7 +249,7 @@ export default function EmployeesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Employees</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Employees</h1>
           <p className="text-sm text-muted-foreground">
             {employees?.length ?? 0} total employees
           </p>
@@ -194,8 +276,8 @@ export default function EmployeesPage() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="grid gap-4">
-              <div className="grid gap-1.5">
-                <Label htmlFor="employee_id">Employee ID</Label>
+              <Field data-invalid={!!formErrors.employee_id || undefined}>
+                <FieldLabel htmlFor="employee_id">Employee ID</FieldLabel>
                 <Input
                   id="employee_id"
                   placeholder="e.g. EMP001"
@@ -209,14 +291,12 @@ export default function EmployeesPage() {
                   aria-invalid={!!formErrors.employee_id}
                 />
                 {formErrors.employee_id && (
-                  <p className="text-xs text-destructive">
-                    {formErrors.employee_id}
-                  </p>
+                  <FieldError>{formErrors.employee_id}</FieldError>
                 )}
-              </div>
+              </Field>
 
-              <div className="grid gap-1.5">
-                <Label htmlFor="full_name">Full Name</Label>
+              <Field data-invalid={!!formErrors.full_name || undefined}>
+                <FieldLabel htmlFor="full_name">Full Name</FieldLabel>
                 <Input
                   id="full_name"
                   placeholder="John Doe"
@@ -227,14 +307,12 @@ export default function EmployeesPage() {
                   aria-invalid={!!formErrors.full_name}
                 />
                 {formErrors.full_name && (
-                  <p className="text-xs text-destructive">
-                    {formErrors.full_name}
-                  </p>
+                  <FieldError>{formErrors.full_name}</FieldError>
                 )}
-              </div>
+              </Field>
 
-              <div className="grid gap-1.5">
-                <Label htmlFor="email">Email</Label>
+              <Field data-invalid={!!formErrors.email || undefined}>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
                   id="email"
                   type="email"
@@ -246,14 +324,12 @@ export default function EmployeesPage() {
                   aria-invalid={!!formErrors.email}
                 />
                 {formErrors.email && (
-                  <p className="text-xs text-destructive">
-                    {formErrors.email}
-                  </p>
+                  <FieldError>{formErrors.email}</FieldError>
                 )}
-              </div>
+              </Field>
 
-              <div className="grid gap-1.5">
-                <Label>Department</Label>
+              <Field data-invalid={!!formErrors.department || undefined}>
+                <FieldLabel>Department</FieldLabel>
                 <Select
                   value={formData.department}
                   onValueChange={(value) =>
@@ -263,25 +339,23 @@ export default function EmployeesPage() {
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {DEPARTMENTS.map((dept) => (
-                      <SelectItem key={dept} value={dept}>
-                        {dept}
-                      </SelectItem>
-                    ))}
+                  <SelectContent position="popper">
+                    <SelectGroup>
+                      {DEPARTMENTS.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
                 {formErrors.department && (
-                  <p className="text-xs text-destructive">
-                    {formErrors.department}
-                  </p>
+                  <FieldError>{formErrors.department}</FieldError>
                 )}
-              </div>
+              </Field>
 
               {formErrors.non_field_errors && (
-                <p className="text-xs text-destructive">
-                  {formErrors.non_field_errors}
-                </p>
+                <FieldError>{formErrors.non_field_errors}</FieldError>
               )}
 
               <DialogFooter>
@@ -301,83 +375,30 @@ export default function EmployeesPage() {
         </Dialog>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {!employees || employees.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-              <UsersIcon className="size-10 text-muted-foreground/50" />
-              <div>
-                <p className="font-medium">No employees yet</p>
-                <p className="text-sm text-muted-foreground">
-                  Add your first employee to get started.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Employee ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {employees.map((emp) => (
-                  <TableRow key={emp.id}>
-                    <TableCell className="font-mono text-xs">
-                      {emp.employee_id}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {emp.full_name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {emp.email}
-                    </TableCell>
-                    <TableCell>{emp.department}</TableCell>
-                    <TableCell>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2Icon />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent size="sm">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Delete {emp.full_name}?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently remove the employee and all
-                              their attendance records. This action cannot be
-                              undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              variant="destructive"
-                              onClick={() => handleDelete(emp.id, emp.full_name)}
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <DataGrid
+        table={table}
+        recordCount={tableData.length}
+        isLoading={isLoading}
+        emptyMessage={
+          <div className="flex flex-col items-center gap-2 py-8">
+            <UsersIcon className="size-8 text-muted-foreground/40" />
+            <p className="text-muted-foreground text-sm">No employees yet</p>
+            <p className="text-muted-foreground/60 text-xs">
+              Add your first employee to get started.
+            </p>
+          </div>
+        }
+      >
+        <div className="w-full space-y-2.5">
+          <DataGridContainer>
+            <ScrollArea>
+              <DataGridTable />
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          </DataGridContainer>
+          {tableData.length > 0 && <DataGridPagination />}
+        </div>
+      </DataGrid>
     </div>
   );
 }

@@ -3,7 +3,6 @@ import {
   BuildingIcon,
   CalendarCheckIcon,
   CalendarXIcon,
-  Loader2Icon,
   AlertCircleIcon,
 } from "lucide-react";
 import {
@@ -21,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/reui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEmployeeSummary } from "@/hooks/useEmployees";
@@ -45,7 +44,9 @@ function StatCard({
           <CardDescription>{title}</CardDescription>
           <Icon className="size-4 text-muted-foreground" />
         </div>
-        <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
+        <CardTitle className="text-2xl tabular-nums tracking-tight">
+          {value}
+        </CardTitle>
         {description && (
           <p className="text-xs text-muted-foreground">{description}</p>
         )}
@@ -183,7 +184,7 @@ export default function DashboardPage() {
                       <TableCell className="font-medium">
                         {dept.department}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell className="text-right font-mono tabular-nums">
                         {dept.count}
                       </TableCell>
                     </TableRow>
@@ -219,22 +220,30 @@ export default function DashboardPage() {
                   {attSummary.map((item) => (
                     <TableRow key={item.employee_id}>
                       <TableCell>
-                        <div>
+                        <div className="flex items-baseline gap-2">
                           <span className="font-medium">
                             {item.employee_name}
                           </span>
-                          <span className="ml-2 text-xs text-muted-foreground">
+                          <span className="font-mono text-[11px] text-muted-foreground">
                             {item.employee_id_display}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Badge variant="secondary" className="tabular-nums">
+                        <Badge
+                          variant="success-light"
+                          size="sm"
+                          className="tabular-nums"
+                        >
                           {item.total_present}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Badge variant="destructive" className="tabular-nums">
+                        <Badge
+                          variant="destructive-light"
+                          size="sm"
+                          className="tabular-nums"
+                        >
                           {item.total_absent}
                         </Badge>
                       </TableCell>

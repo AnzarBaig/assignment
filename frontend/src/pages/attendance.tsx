@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   PlusIcon,
   Trash2Icon,
   CalendarCheckIcon,
+  CalendarIcon,
   AlertCircleIcon,
   Loader2Icon,
   XIcon,
@@ -10,9 +11,18 @@ import {
 import { toast } from "sonner";
 import { isAxiosError } from "axios";
 import { format } from "date-fns";
+import {
+  ColumnDef,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  PaginationState,
+  SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
 
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -33,32 +43,36 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Field, FieldLabel, FieldError } from "@/components/ui/field";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  DataGrid,
+  DataGridContainer,
+} from "@/components/reui/data-grid/data-grid";
+import { DataGridTable } from "@/components/reui/data-grid/data-grid-table";
+import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination";
 import {
   useAttendance,
   useMarkAttendance,
   useDeleteAttendance,
 } from "@/hooks/useAttendance";
 import { useEmployees } from "@/hooks/useEmployees";
-import type { AttendanceFilters } from "@/types/attendanceTypes";
+import type { Attendance, AttendanceFilters } from "@/types/attendanceTypes";
 
 interface FormErrors {
   employee?: string;
@@ -80,23 +94,29 @@ export default function AttendancePage() {
   const deleteAttendance = useDeleteAttendance();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [formDate, setFormDate] = useState<Date | undefined>(new Date());
   const [formData, setFormData] = useState({
     employee: "",
-    date: format(new Date(), "yyyy-MM-dd"),
     status: "Present" as "Present" | "Absent",
   });
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
+  // Filter calendar popover state
+  const [filterDate, setFilterDate] = useState<Date | undefined>(undefined);
+
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+  const [sorting, setSorting] = useState<SortingState>([]);
+
   function resetForm() {
-    setFormData({
-      employee: "",
-      date: format(new Date(), "yyyy-MM-dd"),
-      status: "Present",
-    });
+    setFormData({ employee: "", status: "Present" });
+    setFormDate(new Date());
     setFormErrors({});
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormErrors({});
 
@@ -105,10 +125,15 @@ export default function AttendancePage() {
       return;
     }
 
+    if (!formDate) {
+      setFormErrors({ date: "Please select a date" });
+      return;
+    }
+
     markAttendance.mutate(
       {
         employee: Number(formData.employee),
-        date: formData.date,
+        date: format(formDate, "yyyy-MM-dd"),
         status: formData.status,
       },
       {
@@ -137,26 +162,105 @@ export default function AttendancePage() {
 
   const hasActiveFilters = filters.employee || filters.date;
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-8 w-40" />
-        </div>
-        <Skeleton className="h-10 w-full" />
-        <Card>
-          <CardContent className="pt-4">
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const columns = useMemo<ColumnDef<Attendance>[]>(
+    () => [
+      {
+        accessorKey: "employee_id_display",
+        header: "Employee ID",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">
+            {row.original.employee_id_display}
+          </span>
+        ),
+        size: 120,
+      },
+      {
+        accessorKey: "employee_name",
+        header: "Name",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.employee_name}</span>
+        ),
+        size: 180,
+        enableHiding: false,
+      },
+      {
+        accessorKey: "date",
+        header: "Date",
+        cell: ({ row }) => (
+          <span className="tabular-nums text-muted-foreground">
+            {row.original.date}
+          </span>
+        ),
+        size: 120,
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <Badge
+            variant={
+              row.original.status === "Present" ? "secondary" : "destructive"
+            }
+          >
+            {row.original.status}
+          </Badge>
+        ),
+        size: 100,
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <Trash2Icon className="size-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent size="sm">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this record?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently remove the attendance record for{" "}
+                  {row.original.employee_name} on {row.original.date}.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  onClick={() => handleDelete(row.original.id)}
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        ),
+        size: 48,
+        enableSorting: false,
+      },
+    ],
+    []
+  );
+
+  const tableData = useMemo(() => records ?? [], [records]);
+
+  const table = useReactTable({
+    columns,
+    data: tableData,
+    getRowId: (row) => String(row.id),
+    state: { pagination, sorting },
+    onPaginationChange: setPagination,
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
 
   if (error) {
     return (
@@ -179,7 +283,7 @@ export default function AttendancePage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Attendance</h1>
+          <h1 className="text-lg font-semibold tracking-tight">Attendance</h1>
           <p className="text-sm text-muted-foreground">
             {records?.length ?? 0} records
             {hasActiveFilters ? " (filtered)" : ""}
@@ -207,8 +311,8 @@ export default function AttendancePage() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="grid gap-4">
-              <div className="grid gap-1.5">
-                <Label>Employee</Label>
+              <Field data-invalid={!!formErrors.employee || undefined}>
+                <FieldLabel>Employee</FieldLabel>
                 <Select
                   value={formData.employee}
                   onValueChange={(value) =>
@@ -218,44 +322,59 @@ export default function AttendancePage() {
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select employee" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {employees?.map((emp) => (
-                      <SelectItem key={emp.id} value={String(emp.id)}>
-                        {emp.full_name} ({emp.employee_id})
-                      </SelectItem>
-                    ))}
-                    {(!employees || employees.length === 0) && (
-                      <SelectItem value="__none" disabled>
-                        No employees available
-                      </SelectItem>
-                    )}
+                  <SelectContent position="popper">
+                    <SelectGroup>
+                      {employees?.map((emp) => (
+                        <SelectItem key={emp.id} value={String(emp.id)}>
+                          {emp.full_name} ({emp.employee_id})
+                        </SelectItem>
+                      ))}
+                      {(!employees || employees.length === 0) && (
+                        <SelectItem value="__none" disabled>
+                          No employees available
+                        </SelectItem>
+                      )}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
                 {formErrors.employee && (
-                  <p className="text-xs text-destructive">
-                    {formErrors.employee}
-                  </p>
+                  <FieldError>{formErrors.employee}</FieldError>
                 )}
-              </div>
+              </Field>
 
-              <div className="grid gap-1.5">
-                <Label htmlFor="att-date">Date</Label>
-                <Input
-                  id="att-date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) =>
-                    setFormData((p) => ({ ...p, date: e.target.value }))
-                  }
-                  aria-invalid={!!formErrors.date}
-                />
+              <Field data-invalid={!!formErrors.date || undefined}>
+                <FieldLabel>Date</FieldLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !formDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="size-4" />
+                      {formDate
+                        ? format(formDate, "PPP")
+                        : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={formDate}
+                      onSelect={setFormDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
                 {formErrors.date && (
-                  <p className="text-xs text-destructive">{formErrors.date}</p>
+                  <FieldError>{formErrors.date}</FieldError>
                 )}
-              </div>
+              </Field>
 
-              <div className="grid gap-1.5">
-                <Label>Status</Label>
+              <Field data-invalid={!!formErrors.status || undefined}>
+                <FieldLabel>Status</FieldLabel>
                 <Select
                   value={formData.status}
                   onValueChange={(value) =>
@@ -268,22 +387,20 @@ export default function AttendancePage() {
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Present">Present</SelectItem>
-                    <SelectItem value="Absent">Absent</SelectItem>
+                  <SelectContent position="popper">
+                    <SelectGroup>
+                      <SelectItem value="Present">Present</SelectItem>
+                      <SelectItem value="Absent">Absent</SelectItem>
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
                 {formErrors.status && (
-                  <p className="text-xs text-destructive">
-                    {formErrors.status}
-                  </p>
+                  <FieldError>{formErrors.status}</FieldError>
                 )}
-              </div>
+              </Field>
 
               {formErrors.non_field_errors && (
-                <p className="text-xs text-destructive">
-                  {formErrors.non_field_errors}
-                </p>
+                <FieldError>{formErrors.non_field_errors}</FieldError>
               )}
 
               <DialogFooter>
@@ -317,33 +434,54 @@ export default function AttendancePage() {
           <SelectTrigger className="w-44">
             <SelectValue placeholder="All employees" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All employees</SelectItem>
-            {employees?.map((emp) => (
-              <SelectItem key={emp.id} value={String(emp.id)}>
-                {emp.full_name}
-              </SelectItem>
-            ))}
+          <SelectContent position="popper">
+            <SelectGroup>
+              <SelectItem value="all">All employees</SelectItem>
+              {employees?.map((emp) => (
+                <SelectItem key={emp.id} value={String(emp.id)}>
+                  {emp.full_name}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
 
-        <Input
-          type="date"
-          className="w-40"
-          value={filters.date ?? ""}
-          onChange={(e) =>
-            setFilters((prev) => ({
-              ...prev,
-              date: e.target.value || undefined,
-            }))
-          }
-        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-44 justify-start font-normal",
+                !filterDate && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="size-3.5" />
+              {filterDate ? format(filterDate, "MMM d, yyyy") : "Filter by date"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={filterDate}
+              onSelect={(date) => {
+                setFilterDate(date);
+                setFilters((prev) => ({
+                  ...prev,
+                  date: date ? format(date, "yyyy-MM-dd") : undefined,
+                }));
+              }}
+            />
+          </PopoverContent>
+        </Popover>
 
         {hasActiveFilters && (
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setFilters({})}
+            onClick={() => {
+              setFilters({});
+              setFilterDate(undefined);
+            }}
             className="text-muted-foreground"
           >
             <XIcon />
@@ -352,98 +490,36 @@ export default function AttendancePage() {
         )}
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {!records || records.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-              <CalendarCheckIcon className="size-10 text-muted-foreground/50" />
-              <div>
-                <p className="font-medium">
-                  {hasActiveFilters
-                    ? "No records match your filters"
-                    : "No attendance records yet"}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {hasActiveFilters
-                    ? "Try adjusting or clearing your filters."
-                    : "Mark attendance for an employee to get started."}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Employee ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-12" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell className="font-mono text-xs">
-                      {record.employee_id_display}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {record.employee_name}
-                    </TableCell>
-                    <TableCell className="tabular-nums text-muted-foreground">
-                      {record.date}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          record.status === "Present"
-                            ? "secondary"
-                            : "destructive"
-                        }
-                      >
-                        {record.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2Icon />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent size="sm">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Delete this record?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently remove the attendance record
-                              for {record.employee_name} on {record.date}.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              variant="destructive"
-                              onClick={() => handleDelete(record.id)}
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <DataGrid
+        table={table}
+        recordCount={tableData.length}
+        isLoading={isLoading}
+        emptyMessage={
+          <div className="flex flex-col items-center gap-2 py-8">
+            <CalendarCheckIcon className="size-8 text-muted-foreground/40" />
+            <p className="text-muted-foreground text-sm">
+              {hasActiveFilters
+                ? "No records match your filters"
+                : "No attendance records yet"}
+            </p>
+            <p className="text-muted-foreground/60 text-xs">
+              {hasActiveFilters
+                ? "Try adjusting or clearing your filters."
+                : "Mark attendance for an employee to get started."}
+            </p>
+          </div>
+        }
+      >
+        <div className="w-full space-y-2.5">
+          <DataGridContainer>
+            <ScrollArea>
+              <DataGridTable />
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
+          </DataGridContainer>
+          {tableData.length > 0 && <DataGridPagination />}
+        </div>
+      </DataGrid>
     </div>
   );
 }
