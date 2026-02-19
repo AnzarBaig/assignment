@@ -315,7 +315,7 @@ export default function EmployeesPage() {
           }}
         >
           <DialogTrigger asChild>
-            <Button size="sm">
+            <Button size="lg">
               <PlusIcon />
               Add Employee
             </Button>

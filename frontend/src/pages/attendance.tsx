@@ -332,7 +332,7 @@ export default function AttendancePage() {
           }}
         >
           <DialogTrigger asChild>
-            <Button size="sm">
+            <Button size="lg">
               <PlusIcon />
               Mark Attendance
             </Button>
