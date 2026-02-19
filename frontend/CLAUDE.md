@@ -1,13 +1,13 @@
 # Project Overview
 
-QuessCorpAssignment frontend — a Next.js application.
+HRMS Lite frontend — a Next.js application for managing employees and tracking attendance.
 
 ## Tech Stack
 
 - **Framework:** Next.js 16 (Pages Router — `src/pages/`)
 - **Language:** TypeScript (strict mode)
 - **React:** 19
-- **UI:** shadcn/ui + Radix UI + Base UI
+- **UI:** shadcn/ui + Radix UI
 - **Styling:** Tailwind CSS 4
 - **Data Fetching:** React Query (@tanstack/react-query) + Axios
 - **Package Manager:** bun
@@ -23,57 +23,54 @@ QuessCorpAssignment frontend — a Next.js application.
 ```
 src/
   api/
-    client.ts                    # Axios instance + auth interceptors
+    client.ts                    # Axios instance (no auth)
     services/
-      projectService.ts          # CRUD methods (all POST)
+      employeeService.ts         # Employee CRUD (GET/POST/DELETE)
+      attendanceService.ts       # Attendance CRUD + filtering
   constant/
     apiEndpoints.ts              # API_BASE_URL + API_ENDPOINTS
   types/
-    projectTypes.ts              # Request/response interfaces
+    employeeTypes.ts             # Employee, CreateEmployeeRequest, EmployeeSummary
+    attendanceTypes.ts           # Attendance, CreateAttendanceRequest, AttendanceFilters
   utils/
     queryKeys.ts                 # React Query cache key factories
   hooks/
-    useProject.ts                # React Query hooks (queries + mutations)
+    useEmployees.ts              # useEmployees, useEmployeeSummary, useCreateEmployee, useDeleteEmployee
+    useAttendance.ts             # useAttendance, useAttendanceSummary, useMarkAttendance, useDeleteAttendance
   components/
+    app-sidebar.tsx              # Sidebar navigation (Dashboard, Employees, Attendance)
+    layout/
+      app-layout.tsx             # SidebarProvider + SidebarInset wrapper
     ui/                          # shadcn UI components
   lib/
     utils.ts                     # cn() utility (clsx + tailwind-merge)
   pages/
-    _app.tsx                     # QueryClientProvider + ThemeProvider
+    _app.tsx                     # QueryClientProvider + ThemeProvider + AppLayout
     _document.tsx
-    index.tsx
+    index.tsx                    # Dashboard (stats + department + attendance summary)
+    employees.tsx                # Employee list + add dialog + delete
+    attendance.tsx               # Attendance records + mark dialog + filters + delete
   styles/
     globals.css
 ```
 
 ## Data Fetching Architecture
 
-All API calls use POST. The pipeline follows this flow:
+Pipeline: `apiEndpoints → types → services → queryKeys → hooks → pages`
 
-```
-constant/apiEndpoints.ts → types/*.ts → api/services/*.ts → utils/queryKeys.ts → hooks/*.ts
-```
-
-### Adding a new entity
-
-1. Add endpoint routes to `src/constant/apiEndpoints.ts`
-2. Create `src/types/<entity>Types.ts` with request/response interfaces
-3. Create `src/api/services/<entity>Service.ts` — plain object, `apiClient.post()`, returns `response.data`
-4. Add key factory to `src/utils/queryKeys.ts`
-5. Create `src/hooks/use<Entity>.ts` — useQuery for reads, useMutation for writes
-
-No changes to `client.ts` or `_app.tsx` needed.
+Services use proper HTTP methods (GET, POST, DELETE). No auth required.
 
 ### Cache invalidation strategy
 
-- **Create:** invalidate `all` (refetch lists)
-- **Update:** invalidate specific `detail` + `all`
-- **Delete:** `removeQueries` for deleted item + invalidate `all`
+- **Create:** invalidate entity's `all` key (refetch lists + summaries)
+- **Delete employee:** invalidate both `employees.all` and `attendance.all` (cascade)
+- **Delete attendance:** invalidate `attendance.all`
 
 ## Conventions
 
 - Path alias: `@/*` maps to `./src/*`
 - Services are plain objects (not classes), no error handling (React Query handles it)
 - Query keys use hierarchical factories with `as const`
-- Auth token stored in `localStorage("authToken")`, attached via Axios request interceptor
-- Axios response interceptor redirects to `/login` on 401/403
+- No authentication — open API
+- Backend runs on `localhost:8000`, frontend on `localhost:3000`
+- `NEXT_PUBLIC_API_BASE_URL` env var points to backend API base
