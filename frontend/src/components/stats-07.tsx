@@ -67,7 +67,7 @@ export default function Stats07() {
                 <div className="relative flex items-center justify-center">
                   <ChartContainer
                     config={chartConfig}
-                    className="h-[80px] w-[80px]"
+                    className="h-20 w-20"
                   >
                     <RadialBarChart
                       data={[item]}

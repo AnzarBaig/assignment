@@ -68,7 +68,7 @@ export function Pattern() {
   return (
     <Field className="max-w-xs">
       <Select>
-        <SelectTrigger className="w-[200px]">
+        <SelectTrigger className="w-50">
           <SelectValue placeholder="Select an option" />
         </SelectTrigger>
         <SelectContent position="popper">

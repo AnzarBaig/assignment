@@ -48,7 +48,7 @@ function DashboardSkeleton() {
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i} className="p-4">
             <CardContent className="p-0 flex items-center space-x-4">
-              <Skeleton className="h-[80px] w-[80px] rounded-full shrink-0" />
+              <Skeleton className="h-20 w-20 rounded-full shrink-0" />
               <div className="space-y-2">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-3 w-20" />

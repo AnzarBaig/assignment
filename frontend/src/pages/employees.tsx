@@ -169,7 +169,7 @@ export default function EmployeesPage() {
         ),
         meta: {
           skeleton: (
-            <div className="flex h-[41px] items-center gap-3">
+            <div className="flex h-10.25 items-center gap-3">
               <Skeleton className="size-8 rounded-full" />
               <div className="space-y-1">
                 <Skeleton className="h-5 w-24" />
