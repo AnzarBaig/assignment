@@ -28,7 +28,7 @@ const chartConfig = {
     color: "var(--chart-1)",
   },
   "chart-2": {
-    label: "Dept Coverage",
+    label: "Tracked Employees",
     color: "var(--chart-2)",
   },
   "chart-3": {
@@ -121,34 +121,34 @@ export default function DashboardPage() {
   const totalAbsent =
     attSummary?.reduce((sum, item) => sum + item.total_absent, 0) ?? 0;
   const totalRecords = totalPresent + totalAbsent;
-  const activeDepts = empSummary?.departments.length ?? 0;
   const totalEmployees = empSummary?.total_employees ?? 0;
-  const employeeCapacity = 50;
+  const trackedEmployees = attSummary?.length ?? 0;
+  const trackedPct = totalEmployees > 0 ? Math.round((trackedEmployees / totalEmployees) * 100) : 0;
 
   const stats = [
     {
       name: "Attendance Rate",
       capacity: totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0,
-      subtitle: `${totalPresent} of ${totalRecords} records`,
+      subtitle: `${totalPresent} of ${totalRecords} records present`,
       fill: "var(--chart-1)",
-    },
-    {
-      name: "Dept Coverage",
-      capacity: Math.round((activeDepts / 8) * 100),
-      subtitle: `${activeDepts} of 8 departments`,
-      fill: "var(--chart-2)",
-    },
-    {
-      name: "Total Employees",
-      capacity: Math.min(Math.round((totalEmployees / employeeCapacity) * 100), 100),
-      subtitle: `${totalEmployees} employees registered`,
-      fill: "var(--chart-3)",
     },
     {
       name: "Absence Rate",
       capacity: totalRecords > 0 ? Math.round((totalAbsent / totalRecords) * 100) : 0,
-      subtitle: `${totalAbsent} absent records`,
+      subtitle: `${totalAbsent} of ${totalRecords} records absent`,
       fill: "var(--chart-4)",
+    },
+    {
+      name: "Total Employees",
+      capacity: trackedPct,
+      subtitle: `${totalEmployees} employees registered`,
+      fill: "var(--chart-3)",
+    },
+    {
+      name: "Tracked Employees",
+      capacity: trackedPct,
+      subtitle: `${trackedEmployees} of ${totalEmployees} employees tracked`,
+      fill: "var(--chart-2)",
     },
   ];
 

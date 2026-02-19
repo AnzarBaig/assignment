@@ -48,6 +48,11 @@ src/
     _app.tsx                     # QueryClientProvider + ThemeProvider + AppLayout
     _document.tsx
     index.tsx                    # Dashboard (stats + department + attendance summary)
+                                 #   Stats (radial ring cards):
+                                 #     Attendance Rate  — present / total records
+                                 #     Absence Rate     — absent / total records
+                                 #     Total Employees  — tracked / total (shows registration count)
+                                 #     Tracked Employees — tracked / total (shows tracking coverage %)
     employees.tsx                # Employee list + add dialog + delete
     attendance.tsx               # Attendance records + mark dialog + filters + delete
   styles/
